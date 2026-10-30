@@ -1,9 +1,37 @@
-.venv/
+# Python
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 .pytest_cache/
 .ruff_cache/
-*.py[cod]
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets
 .env
-dist/
+.env.*
+!.env.example
+
+# Local databases and vector stores
+*.db
+*.sqlite
+*.sqlite3
+chroma/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
 build/
+dist/
 *.egg-info/

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from codemind.chunking.service import CodeChunker
 from codemind.parser.models import CodeSymbol, ParsedFile
 

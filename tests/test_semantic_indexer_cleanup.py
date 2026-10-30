@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from codemind.indexer.semantic import SemanticIndexer
 from codemind.vectorstore.service import VectorStoreService
 

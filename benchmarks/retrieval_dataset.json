@@ -1,0 +1,31 @@
+
+{
+  "repository": ".",
+  "top_k": 3,
+  "queries": [
+    {
+      "query": "Find the repository scanning implementation",
+      "relevant_ids": [
+        "src/codemind/scanner/service.py::RepositoryScanner::1"
+      ]
+    },
+    {
+      "query": "Find the code parsing implementation",
+      "relevant_ids": [
+        "src/codemind/parser/service.py::CodeParser::1"
+      ]
+    },
+    {
+      "query": "Find the semantic embedding generation implementation",
+      "relevant_ids": [
+        "src/codemind/embeddings/service.py::EmbeddingService::1"
+      ]
+    },
+    {
+      "query": "Find the hybrid retrieval implementation",
+      "relevant_ids": [
+        "src/codemind/search/hybrid.py::HybridSearchService::1"
+      ]
+    }
+  ]
+}

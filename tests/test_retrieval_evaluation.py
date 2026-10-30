@@ -55,8 +55,8 @@ def test_recall_rejects_invalid_k():
 
 
 from codemind.search.evaluation import (
-    reciprocal_rank,
     mean_reciprocal_rank,
+    reciprocal_rank,
 )
 
 

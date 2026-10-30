@@ -1,9 +1,9 @@
 from codemind.embeddings.service import EmbeddingService
-from codemind.vectorstore.service import VectorStoreService
 from codemind.search.evaluation import (
     precision_at_k,
     recall_at_k,
 )
+from codemind.vectorstore.service import VectorStoreService
 
 
 def test_evaluate_real_semantic_retrieval(tmp_path):

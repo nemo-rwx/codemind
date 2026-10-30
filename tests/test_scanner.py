@@ -17,12 +17,8 @@ def test_scanner_detects_files(tmp_path):
 
 def test_scanner_ignores_venv(tmp_path):
     (tmp_path / ".venv").mkdir()
-    (tmp_path / ".venv" / "ignored.py").write_text(
-        "print('ignored')", encoding="utf-8"
-    )
-    (tmp_path / "main.py").write_text(
-        "print('included')", encoding="utf-8"
-    )
+    (tmp_path / ".venv" / "ignored.py").write_text("print('ignored')", encoding="utf-8")
+    (tmp_path / "main.py").write_text("print('included')", encoding="utf-8")
 
     result = RepositoryScanner().scan(tmp_path)
 
