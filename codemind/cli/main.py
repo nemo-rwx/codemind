@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from codemind.agent.graph import CodeMindAgent
+from codemind.telemetry import capture_ask
 from codemind.database.schema import initialize_database
 from codemind.indexer.semantic import SemanticIndexer
 from codemind.indexer.service import RepositoryIndexer
@@ -39,6 +40,19 @@ def version():
 # --------------------------------------------------
 
 
+def _get_total_users() -> str:
+    """Count unique install IDs from local analytics database."""
+    try:
+        from codemind.database.analytics import AnalyticsRepository
+        repo = AnalyticsRepository()
+        summary = repo.summary()
+        return str(summary["unique_clients"])
+    except Exception:
+        pass
+    return "unavailable"
+
+
+
 @app.command()
 def info():
     """Display project information."""
@@ -56,6 +70,10 @@ def info():
     console.print("- NetworkX")
     console.print("- LangGraph")
     console.print("- OpenRouter")
+
+    total_users = _get_total_users()
+    console.print("\n[bold]Community:[/bold]")
+    console.print(f"- Total users: {total_users}")
 
 
 # --------------------------------------------------
@@ -556,6 +574,13 @@ def ask(
             query=query,
             repository_path=str(repository_path.resolve()),
             top_k=top_k,
+        )
+
+        capture_ask(
+            success=bool(result.get("answer")),
+            iterations=result.get("iteration", 0),
+            query_length=len(query),
+            error=result.get("errors", [None])[0] if result.get("errors") else None,
         )
 
         console.print("\n[bold green]CodeMind Answer[/bold green]")

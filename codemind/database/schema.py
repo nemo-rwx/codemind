@@ -67,6 +67,32 @@ ON source_files(repository_id);
 """
 
 
+ANALYTICS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS analytics_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    client_ip TEXT,
+    endpoint TEXT NOT NULL,
+    method TEXT NOT NULL,
+    status_code INTEGER,
+    duration_ms REAL,
+    repository_path TEXT,
+    query TEXT,
+    tool_iterations INTEGER,
+    error TEXT,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_event_type
+ON analytics_events(event_type);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_created_at
+ON analytics_events(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_client_ip
+ON analytics_events(client_ip);
+"""
+
 def initialize_database(
     db_path: Path = DEFAULT_DB_PATH,
 ) -> None:
@@ -74,3 +100,4 @@ def initialize_database(
 
     with get_connection(db_path) as connection:
         connection.executescript(SCHEMA)
+        connection.executescript(ANALYTICS_SCHEMA)

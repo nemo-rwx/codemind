@@ -21,6 +21,7 @@ dependencies = [
     "sentence-transformers>=3.0",
     "chromadb>=0.5",
     "networkx>=3.0",
+    "posthog>=3.0",
 ]
 
 

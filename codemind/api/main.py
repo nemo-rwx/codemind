@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from codemind.api.middleware import AnalyticsMiddleware
+from codemind.api.routes.analytics import router as analytics_router
 from codemind.api.routes.repositories import router as repository_router
 from codemind.database.schema import initialize_database
 
@@ -30,4 +32,6 @@ def health_check():
     }
 
 
+app.add_middleware(AnalyticsMiddleware)
 app.include_router(repository_router)
+app.include_router(analytics_router)
