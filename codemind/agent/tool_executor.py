@@ -6,6 +6,8 @@ from codemind.agent.tools.repository_tools import RepositoryTools
 
 
 class ToolExecutor:
+    """Validate and execute read-only repository tools."""
+
     def __init__(
         self,
         repository_tools=None,
@@ -27,7 +29,13 @@ class ToolExecutor:
                 repository_path=repository_path,
             )
 
-            if tool_name == "search_symbols":
+            if tool_name == "hybrid_search":
+                result = self.repository_tools.hybrid_search(
+                    query=arguments["query"],
+                    repository_path=repository_path,
+                )
+
+            elif tool_name == "search_symbols":
                 result = self.repository_tools.search_symbols(
                     query=arguments["query"],
                     repository_path=repository_path,
@@ -57,11 +65,16 @@ class ToolExecutor:
                 raise GuardrailError("Unsupported tool")
 
             return {
-                "tool_result": result if isinstance(result, list) else [result],
+                "tool_result": (result if isinstance(result, list) else [result]),
                 "errors": [],
             }
 
-        except (GuardrailError, ValueError, OSError, KeyError) as error:
+        except (
+            GuardrailError,
+            ValueError,
+            OSError,
+            KeyError,
+        ) as error:
             return {
                 "tool_result": [],
                 "errors": [str(error)],

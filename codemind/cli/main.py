@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -23,36 +24,37 @@ app = typer.Typer(
 
 console = Console()
 
-
-# --------------------------------------------------
-# VERSION
-# --------------------------------------------------
-
-
-@app.command()
-def version():
-    """Display CodeMind version."""
-    console.print("[bold green]CodeMind v0.1.0[/bold green]")
-
-
-# --------------------------------------------------
-# INFO
-# --------------------------------------------------
-
-
 CODEMIND_API_URL = "https://codemind-cl2m.onrender.com"
 
 
 def _get_total_users() -> str:
     """Fetch unique user count from the central CodeMind API."""
+
     try:
-        import httpx
-        resp = httpx.get(f"{CODEMIND_API_URL}/api/v1/analytics", timeout=5.0)
-        if resp.status_code == 200:
-            return str(resp.json().get("unique_clients", "?"))
-    except Exception:
+        response = httpx.get(
+            f"{CODEMIND_API_URL}/api/v1/analytics",
+            timeout=5.0,
+        )
+
+        if response.status_code == 200:
+            return str(response.json().get("unique_clients", "?"))
+
+    except (
+        httpx.HTTPError,
+        ValueError,
+        TypeError,
+        AttributeError,
+    ):
         pass
+
     return "unavailable"
+
+
+@app.command()
+def version():
+    """Display CodeMind version."""
+
+    console.print("[bold green]CodeMind v0.1.0[/bold green]")
 
 
 @app.command()
@@ -74,13 +76,9 @@ def info():
     console.print("- OpenRouter")
 
     total_users = _get_total_users()
+
     console.print("\n[bold]Community:[/bold]")
     console.print(f"- Total users: {total_users}")
-
-
-# --------------------------------------------------
-# REPOSITORY SCAN
-# --------------------------------------------------
 
 
 @app.command()
@@ -121,11 +119,6 @@ def scan(
         raise typer.Exit(code=1) from error
 
 
-# --------------------------------------------------
-# REPOSITORY INDEX
-# --------------------------------------------------
-
-
 @app.command()
 def index(
     path: Path = typer.Argument(
@@ -140,6 +133,7 @@ def index(
     """Scan, parse, and index a repository."""
 
     initialize_database()
+
     try:
         indexer = RepositoryIndexer()
         result = indexer.index_repository(path)
@@ -167,11 +161,6 @@ def index(
         raise typer.Exit(code=1) from error
 
 
-# --------------------------------------------------
-# KEYWORD SEARCH
-# --------------------------------------------------
-
-
 @app.command()
 def search(
     query: str = typer.Argument(
@@ -182,6 +171,7 @@ def search(
     """Search indexed code symbols."""
 
     initialize_database()
+
     try:
         search_service = CodeSearchService()
         results = search_service.search(query)
@@ -215,11 +205,6 @@ def search(
     except ValueError as error:
         console.print(f"[red]{error}[/red]")
         raise typer.Exit(code=1) from error
-
-
-# --------------------------------------------------
-# SEMANTIC INDEX
-# --------------------------------------------------
 
 
 @app.command("semantic-index")
@@ -261,11 +246,6 @@ def semantic_index(
     except Exception as error:
         console.print(f"[red]Semantic indexing failed: {error}[/red]")
         raise typer.Exit(code=1) from error
-
-
-# --------------------------------------------------
-# SEMANTIC SEARCH
-# --------------------------------------------------
 
 
 @app.command("semantic-search")
@@ -348,11 +328,6 @@ def semantic_search(
         raise typer.Exit(code=1) from error
 
 
-# --------------------------------------------------
-# HYBRID SEARCH
-# --------------------------------------------------
-
-
 @app.command("hybrid-search")
 def hybrid_search(
     query: str = typer.Argument(
@@ -395,7 +370,7 @@ def hybrid_search(
                 result["name"],
                 result["kind"],
                 result["file_path"],
-                (f"{result['start_line']}-{result['end_line']}"),
+                f"{result['start_line']}-{result['end_line']}",
                 ", ".join(result["sources"]),
                 f"{result['score']:.5f}",
             )
@@ -415,11 +390,6 @@ def hybrid_search(
     except Exception as error:
         console.print(f"[red]Hybrid search failed: {error}[/red]")
         raise typer.Exit(code=1) from error
-
-
-# --------------------------------------------------
-# RETRIEVAL BENCHMARK
-# --------------------------------------------------
 
 
 @app.command("benchmark")
@@ -474,11 +444,6 @@ def benchmark_repository(
     except (ValueError, FileNotFoundError) as error:
         console.print(f"[red]Benchmark failed: {error}[/red]")
         raise typer.Exit(code=1) from error
-
-
-# --------------------------------------------------
-# BENCHMARK DATASET
-# --------------------------------------------------
 
 
 @app.command("benchmark-dataset")
@@ -537,11 +502,6 @@ def benchmark_dataset(
         raise typer.Exit(code=1) from error
 
 
-# --------------------------------------------------
-# AGENT ASK
-# --------------------------------------------------
-
-
 @app.command()
 def ask(
     query: str = typer.Argument(
@@ -567,6 +527,7 @@ def ask(
     """Ask the CodeMind agent to investigate your codebase."""
 
     initialize_database()
+
     try:
         console.print("\n[bold cyan]CodeMind Agent is investigating...[/bold cyan]")
 
@@ -582,7 +543,7 @@ def ask(
             success=bool(result.get("answer")),
             iterations=result.get("iteration", 0),
             query_length=len(query),
-            error=result.get("errors", [None])[0] if result.get("errors") else None,
+            error=(result.get("errors", [None])[0] if result.get("errors") else None),
         )
 
         console.print("\n[bold green]CodeMind Answer[/bold green]")
@@ -619,11 +580,6 @@ def ask(
     except Exception as error:
         console.print(f"\n[bold red]Agent failed: {error}[/bold red]")
         raise typer.Exit(code=1) from error
-
-
-# --------------------------------------------------
-# APPLICATION ENTRY POINT
-# --------------------------------------------------
 
 
 if __name__ == "__main__":

@@ -11,7 +11,9 @@ class OutputGuardrails:
         """Validate an answer and redact any likely secrets."""
 
         if not isinstance(answer, str):
-            raise TypeError("Agent answer must be a string")
+            raise ValueError(  # noqa: TRY004
+                "Agent answer must be a string"
+            )
 
         if not answer.strip():
             raise ValueError("Agent answer cannot be empty")

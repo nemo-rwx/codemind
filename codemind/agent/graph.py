@@ -22,12 +22,9 @@ class CodeMindAgent:
         self.nodes = nodes or AgentNodes()
         self.tool_executor = tool_executor or self.nodes.tool_executor
         self.max_iterations = max_iterations
-
         self.graph = self._build_graph()
 
     def _build_graph(self):
-        """Build and compile the LangGraph workflow."""
-
         workflow = StateGraph(AgentState)
 
         workflow.add_node("select_tool", self._select_tool)
@@ -62,13 +59,9 @@ class CodeMindAgent:
         return workflow.compile()
 
     def _select_tool(self, state: AgentState) -> dict[str, Any]:
-        """Select a repository tool."""
-
         return self.nodes.select_tool(state)
 
     def _execute_tool(self, state: AgentState) -> dict[str, Any]:
-        """Execute the selected tool and increment the iteration counter."""
-
         current_iteration = state.get("iteration", 0)
 
         try:
@@ -84,43 +77,45 @@ class CodeMindAgent:
             updates = dict(result)
 
         except Exception as error:  # noqa: BLE001
-            # Convert unexpected tool failures into agent state errors.
             updates = {
                 "tool_result": [],
                 "errors": state.get("errors", []) + [f"Tool execution failed: {error}"],
             }
 
         updates["iteration"] = current_iteration + 1
-
         return updates
 
     def _record_observation(self, state: AgentState) -> dict[str, Any]:
-        """Record the tool result in the agent's observation history."""
+        recorder = getattr(self.nodes, "record_observation", None)
 
-        try:
-            return self.nodes.record_observation(state)
+        if callable(recorder):
+            try:
+                return recorder(state)
+            except (TypeError, ValueError, KeyError) as error:
+                error_message = f"Observation recording failed: {error}"
+        else:
+            error_message = ""
 
-        except (TypeError, ValueError, KeyError) as error:
-            observation = {
-                "tool": state.get("selected_tool", ""),
-                "result": f"Could not record observation: {error}",
-            }
+        observation = {
+            "tool": state.get("selected_tool", ""),
+            "input": state.get("tool_input", ""),
+            "results": state.get("tool_result", []),
+            "errors": state.get("errors", []),
+        }
 
-            observations = list(state.get("observations", []))
-            observations.append(observation)
+        observations = list(state.get("observations", []))
+        observations.append(observation)
 
-            return {
-                "observations": observations,
-                "errors": state.get("errors", [])
-                + [f"Observation recording failed: {error}"],
-            }
+        updates = {"observations": observations}
+
+        if error_message:
+            updates["errors"] = state.get("errors", []) + [error_message]
+
+        return updates
 
     def _generate_answer(self, state: AgentState) -> dict[str, Any]:
-        """Generate the final answer."""
-
         try:
             return self.nodes.generate_answer(state)
-
         except (RuntimeError, TypeError, ValueError, KeyError) as error:
             return {
                 "answer": (
@@ -132,13 +127,12 @@ class CodeMindAgent:
             }
 
     def _route_after_selection(self, state: AgentState) -> str:
-        """Decide whether a tool can be executed."""
+        selected_tool = state.get("selected_tool", "")
 
-        # Only stop on errors if we have no observations yet
         if state.get("errors") and not state.get("observations"):
             return "generate_answer"
 
-        if not state.get("selected_tool"):
+        if not selected_tool or selected_tool == "answer_directly":
             return "generate_answer"
 
         if state.get("iteration", 0) >= state.get(
@@ -149,15 +143,16 @@ class CodeMindAgent:
         return "execute_tool"
 
     def _route_after_observation(self, state: AgentState) -> str:
-        """Decide whether to continue investigating or answer."""
-
-        # Only stop on errors if we have made no progress
         if state.get("errors") and not state.get("observations"):
             return "generate_answer"
 
         if state.get("iteration", 0) >= state.get(
             "max_iterations", self.max_iterations
         ):
+            return "generate_answer"
+
+        # Compatibility with simple/custom node implementations.
+        if not callable(getattr(self.nodes, "record_observation", None)):
             return "generate_answer"
 
         return "select_tool"
@@ -168,8 +163,6 @@ class CodeMindAgent:
         repository_path: str,
         top_k: int = 5,
     ) -> AgentState:
-        """Run the CodeMind agent against a repository."""
-
         if not isinstance(query, str):
             raise TypeError("Query must be a string")
 

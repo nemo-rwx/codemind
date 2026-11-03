@@ -18,7 +18,6 @@ class FakeAgentNodes:
 
         return {
             "observations": state["observations"] + [observation],
-            "iteration": state.get("iteration", 0) + 1,
         }
 
     def generate_answer(self, state):
@@ -34,13 +33,12 @@ class FakeToolExecutor:
     def __init__(self, return_results=True):
         self.return_results = return_results
 
-    def execute(self, state):
+    def execute(self, tool_name, tool_input, repository_path):
         results = ["fake code chunk"] if self.return_results else []
 
         return {
             "tool_result": results,
             "errors": [],
-            "iteration": state.get("iteration", 0) + 1,
         }
 
 

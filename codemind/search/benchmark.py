@@ -26,16 +26,26 @@ class RetrievalBenchmark:
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
 
+        if k < 1:
+            raise ValueError("k must be at least 1")
+
         repository_path = str(Path(repository_path).expanduser().resolve())
 
         keyword_results = self.keyword_search.search(
-            query, repository_path=repository_path
+            query,
+            repository_path=repository_path,
         )
+
         semantic_results = self.semantic_search.search(
-            query, top_k=k, repository_path=repository_path
+            query,
+            top_k=k,
+            repository_path=repository_path,
         )
+
         hybrid_results = self.hybrid_search.search(
-            query, top_k=k, repository_path=repository_path
+            query,
+            top_k=k,
+            repository_path=repository_path,
         )
 
         strategies = {
@@ -62,9 +72,17 @@ class RetrievalBenchmark:
         individual_reports = []
 
         for item in queries:
+            relevant_ids = item.get(
+                "relevant_ids",
+                item.get("relevant"),
+            )
+
+            if relevant_ids is None:
+                raise ValueError("Each benchmark query must contain relevant_ids")
+
             report = self.evaluate_query(
                 query=item["query"],
-                relevant_ids=set(item["relevant"]),
+                relevant_ids=set(relevant_ids),
                 repository_path=repository_path,
                 k=k,
             )
@@ -96,16 +114,12 @@ class RetrievalBenchmark:
         }
 
     def evaluate_dataset(self, dataset_path: Path) -> dict:
-        """Evaluate all queries from a benchmark dataset."""
-
         dataset_path = Path(dataset_path).expanduser().resolve()
         queries = load_dataset(dataset_path)
 
-        repository_path = dataset_path.parent
-
         return self.evaluate_multiple(
             queries=queries,
-            repository_path=repository_path,
+            repository_path=dataset_path.parent,
             k=3,
         )
 

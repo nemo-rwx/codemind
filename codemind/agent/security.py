@@ -13,12 +13,12 @@ class SecurityScanResult:
 
 
 class SecurityService:
-    """Detect common prompt-injection patterns and redact likely secrets."""
+    """Detect prompt injection patterns and redact likely secrets."""
 
     SECRET_PATTERNS: ClassVar[list[re.Pattern[str]]] = [
         re.compile(
-            r"(?i)(api[_-]?key|access[_-]?token|secret|password)"
-            r"(\s*[:=]\s*)['\"]?([A-Za-z0-9_\-./+=]{8,})"
+            r"""(?i)(?:api[_-]?key|access[_-]?token|secret|password)"""
+            r"""(\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[A-Za-z0-9_\-./+=]{8,})"""
         ),
         re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
         re.compile(
@@ -54,13 +54,13 @@ class SecurityService:
         ),
     ]
 
-    MAX_CONTENT_LENGTH = 20_000
+    MAX_CONTENT_LENGTH: ClassVar[int] = 20_000
 
     def scan_untrusted_content(self, content: str) -> SecurityScanResult:
         """Scan content, redact likely secrets, and flag injection patterns."""
 
         if not isinstance(content, str):
-            raise TypeError("Content must be a string")
+            raise ValueError("Content must be a string")  # noqa: TRY004
 
         content = content[: self.MAX_CONTENT_LENGTH]
 
@@ -75,7 +75,7 @@ class SecurityService:
 
         for pattern in self.SECRET_PATTERNS:
             sanitized_text, replacements = pattern.subn(
-                "[REDACTED_SECRET]",
+                "[REDACTED]",
                 sanitized_text,
             )
             redacted_secrets += replacements

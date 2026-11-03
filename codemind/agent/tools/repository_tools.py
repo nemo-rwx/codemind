@@ -4,6 +4,7 @@ from codemind.agent.tools.source_tools import SourceCodeTools
 from codemind.graph.dependency import DependencyGraphService
 from codemind.parser.service import CodeParser
 from codemind.scanner.service import RepositoryScanner
+from codemind.search.hybrid import HybridSearchService
 from codemind.search.service import CodeSearchService
 
 SUPPORTED_EXTENSIONS = {".py", ".java"}
@@ -15,12 +16,14 @@ class RepositoryTools:
     def __init__(
         self,
         search_service=None,
+        hybrid_search_service=None,
         source_tools=None,
         scanner=None,
         parser=None,
         dependency_graph=None,
     ):
         self.search_service = search_service or CodeSearchService()
+        self.hybrid_search_service = hybrid_search_service or HybridSearchService()
         self.source_tools = source_tools or SourceCodeTools()
         self.scanner = scanner or RepositoryScanner()
         self.parser = parser or CodeParser()
@@ -38,6 +41,28 @@ class RepositoryTools:
 
         return self.search_service.search(
             query=query.strip(),
+            repository_path=normalized_path,
+        )
+
+    def hybrid_search(
+        self,
+        query: str,
+        repository_path: str | Path,
+        top_k: int = 5,
+    ) -> list[dict]:
+        """Search repository code using keyword and semantic retrieval."""
+
+        if not query or not query.strip():
+            raise ValueError("Hybrid search query cannot be empty")
+
+        if top_k < 1:
+            raise ValueError("top_k must be at least 1")
+
+        normalized_path = str(Path(repository_path).expanduser().resolve())
+
+        return self.hybrid_search_service.search(
+            query=query.strip(),
+            top_k=top_k,
             repository_path=normalized_path,
         )
 
@@ -88,6 +113,9 @@ class RepositoryTools:
         if not target.is_relative_to(root):
             raise ValueError("Target file is outside the repository")
 
+        if not target.is_file():
+            raise FileNotFoundError(f"File does not exist: {file_path}")
+
         relative_target = target.relative_to(root).as_posix()
 
         scan_result = self.scanner.scan(root)
@@ -101,16 +129,12 @@ class RepositoryTools:
 
             try:
                 parsed_file = self.parser.parse_file(source_path)
-
-                # Store repository-relative paths in the graph.
                 parsed_file = parsed_file.model_copy(
                     update={"file_path": file_info.path}
                 )
-
                 parsed_files.append(parsed_file)
 
             except (OSError, ValueError):
-                # Skip files that cannot be parsed.
                 continue
 
         self.dependency_graph.build(parsed_files)

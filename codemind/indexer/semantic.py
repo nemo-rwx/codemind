@@ -9,7 +9,7 @@ from codemind.vectorstore.service import VectorStoreService
 
 
 class SemanticIndexer:
-    """Scan, parse, chunk, embed, and index repository source code."""
+    """Build and maintain a semantic index for a code repository."""
 
     SUPPORTED_EXTENSIONS: ClassVar[set[str]] = {".py", ".java"}
 
@@ -28,78 +28,95 @@ class SemanticIndexer:
         self.vector_store = vector_store or VectorStoreService()
 
     def index_repository(self, repository_path: str | Path) -> dict:
-        """Create or refresh semantic indexes for a repository."""
+        """Scan, parse, chunk, and index a repository."""
 
-        root = Path(repository_path).resolve()
+        root_path = Path(repository_path).expanduser().resolve()
 
-        if not root.exists() or not root.is_dir():
-            raise ValueError("Repository path must be an existing directory")
+        if not root_path.exists():
+            raise FileNotFoundError(f"Repository not found: {root_path}")
 
-        summary = self.scanner.scan(root)
+        if not root_path.is_dir():
+            raise NotADirectoryError(f"Repository path is not a directory: {root_path}")
 
+        repository_id = str(root_path)
+
+        existing_ids = set(self.vector_store.get_document_ids(repository_id))
+
+        current_ids = set()
         indexed_files = 0
-        skipped_files = 0
         failed_files = 0
+        skipped_files = 0
         total_chunks = 0
         errors = []
 
-        repository_id = str(root)
+        summary = self.scanner.scan(root_path)
 
         for file_info in summary.files:
-            file_path = Path(file_info.path)
+            relative_path = Path(file_info.path)
 
-            if file_path.suffix.lower() not in self.SUPPORTED_EXTENSIONS:
+            if relative_path.suffix.lower() not in self.SUPPORTED_EXTENSIONS:
                 skipped_files += 1
                 continue
 
-            absolute_path = root / file_path
+            absolute_path = root_path / relative_path
 
             try:
                 parsed_file = self.parser.parse_file(absolute_path)
 
                 chunks = self.chunker.chunk_file(
+                    file_path=absolute_path,
                     parsed_file=parsed_file,
-                    source_path=absolute_path,
                 )
 
-                if not chunks:
-                    indexed_files += 1
-                    continue
+                texts = [chunk["text"] for chunk in chunks]
 
-                texts = [chunk.text for chunk in chunks]
+                if texts:
+                    embeddings = self.embedding_service.generate_embeddings(texts)
 
-                embeddings = self.embedding_service.generate_embeddings(texts)
+                    for index, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                        metadata = {
+                            **chunk["metadata"],
+                            "repository": repository_id,
+                            "file_path": relative_path.as_posix(),
+                        }
 
-                for index, chunk in enumerate(chunks):
-                    metadata = {
-                        **chunk.metadata,
-                        "repository": repository_id,
-                        "file_path": str(file_info.path),
-                    }
+                        document_id = (
+                            f"{repository_id}:"
+                            f"{relative_path.as_posix()}:"
+                            f"{metadata['symbol']}:"
+                            f"{index}"
+                        )
 
-                    document_id = f"{repository_id}:{file_info.path}:{index}"
+                        self.vector_store.add_code(
+                            document_id=document_id,
+                            text=chunk["text"],
+                            embedding=embedding,
+                            metadata=metadata,
+                        )
 
-                    self.vector_store.add_code(
-                        document_id=document_id,
-                        text=chunk.text,
-                        embedding=embeddings[index],
-                        metadata=metadata,
-                    )
+                        current_ids.add(document_id)
+                        total_chunks += 1
 
                 indexed_files += 1
-                total_chunks += len(chunks)
 
             except Exception as error:  # noqa: BLE001
-                # Isolate failures for individual files and continue indexing.
                 failed_files += 1
                 errors.append(f"{file_info.path}: {error}")
 
+        # Preserve existing data if any file failed to index.
+        if failed_files == 0 and not summary.errors:
+            stale_ids = existing_ids - current_ids
+
+            if stale_ids:
+                self.vector_store.delete_documents(list(stale_ids))
+
         return {
-            "repository_path": repository_id,
+            "repository": repository_id,
             "total_files": summary.total_files,
             "indexed_files": indexed_files,
             "skipped_files": skipped_files,
             "failed_files": failed_files,
+            "indexed_chunks": total_chunks,
             "total_chunks": total_chunks,
             "errors": errors,
         }

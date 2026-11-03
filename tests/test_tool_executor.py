@@ -31,11 +31,9 @@ def test_execute_search_symbols():
     executor = ToolExecutor(FakeRepositoryTools())
 
     result = executor.execute(
-        {
-            "selected_tool": "search_symbols",
-            "tool_input": "RepositoryIndexer",
-            "repository_path": ".",
-        }
+        tool_name="search_symbols",
+        tool_input="RepositoryIndexer",
+        repository_path=".",
     )
 
     assert result["tool_result"][0]["name"] == "RepositoryIndexer"
@@ -46,11 +44,9 @@ def test_execute_find_symbol():
     executor = ToolExecutor(FakeRepositoryTools())
 
     result = executor.execute(
-        {
-            "selected_tool": "find_symbol",
-            "tool_input": "PaymentService",
-            "repository_path": ".",
-        }
+        tool_name="find_symbol",
+        tool_input="PaymentService",
+        repository_path=".",
     )
 
     assert result["tool_result"][0]["name"] == "PaymentService"
@@ -60,11 +56,9 @@ def test_reject_unknown_tool():
     executor = ToolExecutor(FakeRepositoryTools())
 
     result = executor.execute(
-        {
-            "selected_tool": "delete_files",
-            "tool_input": "anything",
-            "repository_path": ".",
-        }
+        tool_name="delete_files",
+        tool_input="anything",
+        repository_path=".",
     )
 
     assert result["tool_result"] == []

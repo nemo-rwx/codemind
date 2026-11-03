@@ -38,13 +38,12 @@ class FakeToolExecutor:
     def __init__(self):
         self.execution_count = 0
 
-    def execute(self, state):
+    def execute(self, tool_name, tool_input, repository_path):
         self.execution_count += 1
 
         return {
             "tool_result": [{"name": f"Symbol{self.execution_count}"}],
             "errors": [],
-            "iteration": state["iteration"] + 1,
         }
 
 

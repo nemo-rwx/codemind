@@ -13,7 +13,7 @@ class FakeAgentNodes:
 
 
 class FakeToolExecutor:
-    def execute(self, state):
+    def execute(self, tool_name, tool_input, repository_path):
         return {
             "tool_result": [{"name": "RepositoryIndexer"}],
             "errors": [],

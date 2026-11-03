@@ -11,6 +11,7 @@ class GuardrailService:
     """Validate agent tool calls before execution."""
 
     ALLOWED_TOOLS: ClassVar[set[str]] = {
+        "hybrid_search",
         "search_symbols",
         "find_symbol",
         "get_source",
@@ -42,7 +43,11 @@ class GuardrailService:
         if not root.exists() or not root.is_dir():
             raise GuardrailError("Repository path must be an existing directory")
 
-        if tool_name in {"search_symbols", "find_symbol"}:
+        if tool_name in {
+            "hybrid_search",
+            "search_symbols",
+            "find_symbol",
+        }:
             if not tool_input.strip():
                 raise GuardrailError("Search input cannot be empty")
 
@@ -61,7 +66,11 @@ class GuardrailService:
             if not isinstance(arguments, dict):
                 raise GuardrailError("Source arguments must be a JSON object")
 
-            expected_keys = {"file_path", "start_line", "end_line"}
+            expected_keys = {
+                "file_path",
+                "start_line",
+                "end_line",
+            }
 
             if set(arguments) != expected_keys:
                 raise GuardrailError(
@@ -100,7 +109,10 @@ class GuardrailService:
         raise GuardrailError("Unsupported tool")
 
     @staticmethod
-    def _validate_repository_file(root: Path, file_path: str) -> str:
+    def _validate_repository_file(
+        root: Path,
+        file_path: str,
+    ) -> str:
         """Ensure a file is inside the repository and exists."""
 
         if not file_path or not file_path.strip():
