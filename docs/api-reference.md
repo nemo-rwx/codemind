@@ -1,71 +1,69 @@
-﻿# API Reference
+# API Reference
 
-Start the server:
-```bash
+## Run locally
+
+```cmd
 uvicorn codemind.api.main:app --reload
 ```
 
-Interactive docs: `http://localhost:8000/docs`
+Base URL: `http://127.0.0.1:8000`
 
----
+Interactive API schema: `http://127.0.0.1:8000/docs`
 
-## Endpoints
+## Hosted base URL
 
-### `GET /health`
-Check whether the API is running.
+`https://codemind-cl2m.onrender.com`
 
-**Response:**
-```json
-{ "status": "healthy", "service": "CodeMind API" }
+## `GET /health`
+
+Health endpoint for checking whether the FastAPI application is responding.
+
+```cmd
+curl -i https://codemind-cl2m.onrender.com/health
 ```
 
----
+Use the deployed OpenAPI schema to confirm the exact response body.
 
-### `POST /api/v1/repositories/scan`
-Scan a repository and return file metadata.
+## `POST /api/v1/repositories/scan`
 
-**Request body:**
-```json
-{ "path": "C:/projects/my-repo" }
-```
+Scans a directory path visible to the API process.
 
-**Response:**
+Request model:
+
 ```json
 {
-  "root_path": "C:/projects/my-repo",
-  "total_files": 42,
-  "total_directories": 8,
-  "total_size_bytes": 102400,
-  "language_counts": { "Python": 40, "Other": 2 },
-  "files": [
-    { "path": "src/main.py", "extension": ".py", "language": "Python", "size_bytes": 1024 }
-  ],
-  "errors": []
+  "path": "C:/path/visible/to/the/api-process"
 }
 ```
 
-**Error responses:**
-- `404` — path does not exist
-- `400` — path is not a directory
+Example:
 
----
-
-### `GET /api/v1/analytics`
-Return API usage statistics.
-
-**Response:**
-```json
-{
-  "total_requests": 142,
-  "unique_clients": 5,
-  "error_requests": 3,
-  "avg_duration_ms": 12.4,
-  "requests_by_endpoint": [
-    { "endpoint": "/api/v1/repositories/scan", "requests": 98 }
-  ],
-  "requests_per_day": [
-    { "date": "2026-11-03", "requests": 42 }
-  ],
-  "top_queries": []
-}
+```cmd
+curl -X POST https://codemind-cl2m.onrender.com/api/v1/repositories/scan -H "Content-Type: application/json" -d "{\"path\":\"/path/visible/to/api\"}"
 ```
+
+The path is resolved on the server running FastAPI. Sending a path from the caller's laptop does not make that local directory available to the hosted service.
+
+The route documents:
+- `404` when the path is not found
+- `400` when the path is not a directory
+
+The successful response uses the repository summary schema defined by the application.
+
+## `GET /api/v1/analytics`
+
+Returns aggregate API analytics used by the CLI `info` command.
+
+```cmd
+curl -i https://codemind-cl2m.onrender.com/api/v1/analytics
+```
+
+The CLI reads the `unique_clients` field when the endpoint returns a successful response.
+
+## Deployed schema is authoritative
+
+For exact request/response models and any future route changes, use:
+
+`https://codemind-cl2m.onrender.com/docs`
+
+Do not treat example paths as paths that necessarily exist in the hosted container.

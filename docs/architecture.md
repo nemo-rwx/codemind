@@ -1,129 +1,124 @@
-﻿# Architecture
+# Architecture
 
-## Overview
+## System overview
 
-CodeMind is structured as a layered system: a CLI and REST API on top, a LangGraph agent in the middle, and search, parsing, and storage services at the bottom.
+CodeMind consists of a local developer workflow and a separately hosted FastAPI service.
 
-```
-┌─────────────────────────────────────────────────┐
-│           CLI  (Typer + Rich)                   │
-│           API  (FastAPI on Render)              │
-└──────────────────┬──────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────┐
-│              CodeMind Agent                     │
-│         (LangGraph state machine)               │
-│                                                 │
-│  select_tool → execute_tool                     │
-│       → record_observation                      │
-│       → generate_answer                         │
-└──────┬───────────────────────┬───────────────────┘
-       │                       │
-┌──────▼──────┐       ┌────────▼────────────────┐
-│   Search    │       │   RAG / Prompt Builder  │
-│  Services   │       └─────────────────────────┘
-│             │
-│ - Keyword   │
-│ - Semantic  │
-│ - Hybrid    │
-└──────┬──────┘
-       │
-┌──────▼──────────────────────────────────────────┐
-│                  Storage                        │
-│                                                 │
-│  SQLite    — symbols, imports, calls, analytics │
-│  ChromaDB  — code embeddings                    │
-│  PostHog   — usage telemetry events             │
-└──────┬──────────────────────────────────────────┘
-       │
-┌──────▼──────────────────────────────────────────┐
-│           Parser + Scanner                      │
-│                                                 │
-│  Tree-sitter (Python + Java)                    │
-│  Sentence Transformers (embeddings)             │
-│  OpenRouter (LLM via HTTP)                      │
-└─────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Local["Developer machine"]
+        CLI["Typer + Rich CLI"]
+        SCAN["Repository scanner"]
+        PARSE["Tree-sitter parser"]
+        SQL[("SQLite metadata")]
+        CHUNK["Symbol chunker"]
+        EMB["Sentence Transformers"]
+        CHROMA[("ChromaDB vector store")]
+        SEARCH["Keyword / semantic / hybrid search"]
+        GRAPH["NetworkX dependency graph"]
+        AGENT["LangGraph agent"]
+        TOOLS["Validated repository tools"]
+        RAG["RAG context and prompt"]
+        LLM["OpenRouter client"]
+        CLI --> SCAN --> PARSE --> SQL
+        PARSE --> CHUNK --> EMB --> CHROMA
+        SQL --> SEARCH
+        CHROMA --> SEARCH
+        PARSE --> GRAPH
+        CLI --> AGENT --> TOOLS
+        TOOLS --> SEARCH
+        TOOLS --> GRAPH
+        TOOLS --> RAG --> LLM
+    end
+    subgraph Hosted["Render deployment"]
+        API["FastAPI application"]
+        HEALTH["Health endpoint"]
+        SCANAPI["Repository scan endpoint"]
+        ANALYTICS["Analytics endpoint"]
+        API --> HEALTH
+        API --> SCANAPI
+        API --> ANALYTICS
+    end
+    CLI -. "HTTPS analytics lookup" .-> API
+    CLI -. "codemind_ask event" .-> POSTHOG["PostHog"]
 ```
 
-## Modules
+## Responsibilities
 
-### `scanner`
-Walks a repository directory tree, detects languages by file extension, and returns file metadata. Skips `.git`, `node_modules`, `__pycache__`, and other generated directories.
+| Package | Responsibility |
+|---|---|
+| `scanner` | Walks repository directories, excludes generated directories, detects file languages, and returns file metadata |
+| `parser` | Parses supported Python and Java files and extracts symbols, imports, calls, and parse errors |
+| `database` | Stores repository, source-file, symbol, import, and call metadata in SQLite |
+| `indexer` | Coordinates structural indexing and semantic indexing |
+| `chunking` | Extracts symbol-level code chunks |
+| `embeddings` | Generates vector representations with Sentence Transformers |
+| `vectorstore` | Stores and retrieves embeddings through ChromaDB |
+| `search` | Keyword, semantic, hybrid retrieval, and evaluation |
+| `graph` | Represents dependency relationships with NetworkX |
+| `rag` | Builds bounded retrieved context and LLM prompts |
+| `agent` | LangGraph state, tool selection, execution, observations, and guardrails |
+| `llm` | OpenRouter client |
+| `api` | FastAPI app, routes, dependencies, and request analytics |
+| `telemetry.py` | Optional PostHog `codemind_ask` event |
+| `cli` | Typer commands and Rich terminal presentation |
 
-### `parser`
-Uses Tree-sitter to parse Python and Java source files. Extracts classes, functions, methods, imports, and function calls into structured models.
+## Structural indexing flow
 
-### `database`
-SQLite-backed storage at `~/.codemind/codemind.db`. Two responsibilities:
-- **Code index** — repositories, source files, symbols, imports, function calls
-- **Analytics** — every API request recorded with IP, endpoint, method, status code, duration
+1. The CLI invokes the repository scanner.
+2. The scanner returns candidate files and language metadata.
+3. The indexer selects supported source extensions.
+4. Tree-sitter extracts symbols, imports, calls, and parse errors.
+5. The SQLite repository persists repository and file metadata and replaces extracted child records when a file is re-indexed.
 
-Schema initializes automatically on first use via `initialize_database()`.
+## Semantic indexing flow
 
-### `vectorstore`
-ChromaDB-backed vector store at `~/.codemind/chroma/`. Stores code chunk embeddings with metadata (file path, symbol name, line range). Used by semantic and hybrid search.
+1. Supported source files are parsed.
+2. `CodeChunker` extracts source ranges for symbols.
+3. The embedding service creates normalized embeddings.
+4. ChromaDB stores chunk text, vector, document ID, and metadata.
+5. A successful complete indexing pass can remove stale vector IDs.
 
-### `embeddings`
-Wraps `sentence-transformers` (`BAAI/bge-small-en-v1.5`) to generate normalized embeddings for code chunks and search queries.
+The documented semantic index extensions are `.py` and `.java`.
 
-### `chunking`
-Splits parsed files into overlapping code chunks suitable for embedding and retrieval.
+## Retrieval flow
 
-### `indexer`
-Two indexers:
-- **`RepositoryIndexer`** — scan + parse + save to SQLite
-- **`SemanticIndexer`** — scan + parse + chunk + embed + save to ChromaDB
+- Keyword search queries SQLite symbol metadata.
+- Semantic search embeds the query and searches ChromaDB.
+- Hybrid search merges keyword and semantic results using Reciprocal Rank Fusion.
 
-### `search`
-Three strategies:
-- **Keyword** (`CodeSearchService`) — SQLite `LIKE` query on symbol names
-- **Semantic** (`SemanticSearchService`) — ChromaDB cosine similarity
-- **Hybrid** (`HybridSearchService`) — combines both with Reciprocal Rank Fusion (RRF)
+SQLite and ChromaDB are complementary stores, not interchangeable databases.
 
-### `agent`
-LangGraph state machine with four nodes:
-- `select_tool` — LLM selects which tool to call next, receives observation history from prior steps
-- `execute_tool` — runs the tool through guardrail validation
-- `record_observation` — sanitizes and stores tool output in agent state
-- `generate_answer` — LLM generates a grounded answer from all observations
+## Agent flow
 
-Available tools: `search_symbols`, `find_symbol`, `get_source`, `analyze_change`.
+```mermaid
+flowchart TD
+    A["User question"] --> B["Select tool"]
+    B --> C["Validate tool and arguments"]
+    C --> D["Execute repository tool"]
+    D --> E["Record observation"]
+    E --> F{"Continue and under iteration limit?"}
+    F -- Yes --> B
+    F -- No --> G["Build answer context"]
+    G --> H["OpenRouter LLM"]
+    H --> I["Output validation and sanitization"]
+    I --> J["Answer"]
+```
 
-### `graph`
-NetworkX directed dependency graph. Resolves Python and Java imports to build file-level dependency edges. Used by `analyze_change` to find all files transitively affected by a change.
+The agent state tracks the query, repository path, retrieval depth, selected tool, tool input/result, observations, iteration count, answer, and errors. Available tool names in the current implementation include `search_symbols`, `find_symbol`, `get_source`, `analyze_change`, and `hybrid_search`.
 
-### `rag`
-Builds structured prompts from retrieved code context. Enforces grounding — the LLM must cite sources and cannot invent implementation details.
+## Dependency graph
 
-### `llm`
-HTTP client for the OpenRouter API (`httpx`). Supports standard chat completion and tool-calling. Default model: `openai/gpt-4o-mini`. Timeout: 60 seconds per call.
+The dependency service builds a directed NetworkX graph from import relationships. Impact analysis follows reverse dependency relationships to find potential dependents of a changed file. Import resolution is best-effort and should not be treated as a complete compiler or build-system dependency model.
 
-### `telemetry`
-Anonymous usage tracking via **PostHog**.
-- Fires a `codemind_ask` event on every `ask` command
-- Payload: anonymous install ID, success/failure, iterations, query length, OS, Python version
-- **No query text or file contents are ever sent**
-- Project token is baked in — users do not configure this
-- Opt out: set `CODEMIND_TELEMETRY=off` in `.env`
-- PostHog project: US Cloud, project ID 707212
+## Local and hosted boundary
 
-### `api`
-FastAPI application deployed on **Render** at `https://codemind-cl2m.onrender.com`.
-- `AnalyticsMiddleware` — records every request automatically
-- `GET /health` — health check
-- `POST /api/v1/repositories/scan` — scan a repository
-- `GET /api/v1/analytics` — returns usage stats (total requests, unique clients, daily breakdown)
+The local CLI owns local repository scanning, indexing, local SQLite/ChromaDB data, and agent operations. Render hosts the FastAPI application. The hosted service cannot access arbitrary folders on a developer's computer merely because a local path is sent in an HTTP request.
 
-The `codemind info` CLI command calls this endpoint to show a real-time global user count.
+## External services
 
-## Deployment
+- OpenRouter receives LLM messages and the context assembled for a request.
+- PostHog receives the optional CLI usage event.
+- Render runs the FastAPI service.
 
-The API runs on Render (free tier). Auto-deploys on every push to `main`. SQLite and ChromaDB are on ephemeral disk — analytics reset on redeploy. For persistent analytics, a hosted PostgreSQL database would be needed.
-
-## Security
-
-- **Path traversal prevention** — all file paths resolved and checked against repository root
-- **Prompt injection detection** — tool outputs scanned for injection patterns before LLM use
-- **Secret redaction** — API keys and tokens in tool outputs are redacted
-- **Input validation** — all tool inputs validated by `GuardrailService` before execution
-- **Telemetry opt-out** — users can disable with `CODEMIND_TELEMETRY=off`
+See [Privacy and Security](privacy-and-security.md).

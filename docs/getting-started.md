@@ -1,94 +1,107 @@
-﻿# Getting Started
+# Getting Started
+
+This guide walks through a first local setup and repository analysis.
 
 ## Prerequisites
 
-- Python 3.11 or higher
+- Python 3.11 or newer
 - Git
-- An OpenRouter API key — sign up free at [openrouter.ai](https://openrouter.ai)
+- An OpenRouter API key for LLM-powered agent requests
+- Network access for package installation, initial embedding-model download, and LLM requests
 
-## Installation
+## 1. Get the source
 
-### 1. Clone the repository
-
-```bash
+```cmd
 git clone https://github.com/nemo-rwx/codemind.git
 cd codemind
 ```
 
-### 2. Create a virtual environment
+## 2. Create a virtual environment
 
-**Windows:**
+Windows CMD:
+
+```cmd
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
+
+PowerShell:
+
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-**macOS / Linux:**
+macOS/Linux:
+
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Install dependencies
+## 3. Install
 
-```bash
-pip install -e ".[dev]"
+```cmd
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
 ```
 
-### 4. Configure your API key
+## 4. Configure the LLM provider
 
-```bash
-cp .env.example .env   # macOS/Linux
-copy .env.example .env  # Windows
+If the repository contains `.env.example`, copy it:
+
+```cmd
+copy .env.example .env
 ```
 
-Open `.env` and fill in your key:
+Set the required OpenRouter key in `.env`:
 
-```
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
+```dotenv
+OPENROUTER_API_KEY=your_openrouter_api_key
 OPENROUTER_MODEL=openai/gpt-4o-mini
 ```
 
-## First use
+Use the model identifier configured for your account and project. Never commit `.env`.
 
-### Index a repository
+## 5. Verify
 
-Before you can ask questions, CodeMind needs to index the repository:
-
-```bash
-codemind index /path/to/your/repo
+```cmd
+codemind --help
+codemind version
+codemind info
 ```
 
-This parses all Python and Java files, extracts symbols, and builds a searchable index.
+## 6. Analyze a repository
 
-### Ask a question
+Use a repository path that exists on your own machine:
 
-```bash
-codemind ask "How does the authentication system work?" --repository /path/to/your/repo
+```cmd
+codemind scan "C:\projects\sample-app"
+codemind index "C:\projects\sample-app"
+codemind semantic-index "C:\projects\sample-app"
 ```
 
-The agent will investigate the codebase using up to 5 tool calls and return a grounded answer with source references.
+The first semantic-index operation may download the Sentence Transformers model.
 
-### Search for symbols
+## 7. Search and ask
 
-```bash
+```cmd
 codemind search "PaymentService"
+codemind semantic-search "where is payment validation implemented?"
+codemind hybrid-search "payment validation"
+codemind ask "Explain the payment flow" --repository "C:\projects\sample-app"
 ```
 
-### Scan a repository
+Check `codemind <command> --help` for exact options supported by the installed version.
 
-```bash
-codemind scan /path/to/your/repo
+## 8. Run the API locally
+
+```cmd
+uvicorn codemind.api.main:app --reload
 ```
 
-Returns file counts, language distribution, and total size.
+Then open `http://127.0.0.1:8000/docs`.
 
-## Opt out of telemetry
+## Next
 
-CodeMind sends anonymous usage events to help improve the tool. To disable:
-
-```
-CODEMIND_TELEMETRY=off
-```
-
-Add this to your `.env` file.
+Read [Architecture](architecture.md) to understand the system boundaries and [Privacy and Security](privacy-and-security.md) before indexing sensitive repositories.

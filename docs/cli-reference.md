@@ -1,145 +1,102 @@
-﻿# CLI Reference
+# CLI Reference
 
-## Global options
+The installed command set is authoritative. Run:
 
+```cmd
+codemind --help
+codemind <command> --help
 ```
-codemind --help        Show help
-codemind --version     Show version
-```
 
----
+## General
 
-## Commands
-
-### `version`
-Display the current CodeMind version.
-```bash
+```cmd
 codemind version
-```
-
----
-
-### `info`
-Display project information and community stats.
-```bash
 codemind info
 ```
 
----
+`info` prints product/technology information and attempts to fetch the aggregate unique-client count from the hosted analytics endpoint. `unavailable` means that the count could not be retrieved; it does not prove local CLI functionality is broken.
 
-### `scan`
-Scan a repository and report file statistics.
-```bash
-codemind scan <path>
+## Repository scan
+
+```cmd
+codemind scan "C:\projects\sample-app"
 ```
 
-**Arguments:**
-- `path` — path to the repository directory
+Scans a repository directory and reports file inventory, directory/file totals, size, and language distribution.
 
-**Output:** file count, directory count, total size, language breakdown table.
+## Structural index
 
----
-
-### `index`
-Parse and index a repository into the SQLite database.
-```bash
-codemind index <path>
+```cmd
+codemind index "C:\projects\sample-app"
 ```
 
-**Arguments:**
-- `path` — path to the repository directory
+Parses supported source files and stores repository, file, symbol, import, and call metadata in SQLite.
 
-Must be run before `search` or `ask`. Supports Python and Java files.
+## Keyword search
 
----
-
-### `search`
-Search indexed symbols by name.
-```bash
-codemind search <query>
+```cmd
+codemind search "PaymentService"
 ```
 
-**Arguments:**
-- `query` — class, method, or function name (partial match supported)
+Searches the structural symbol index. Search scope and optional filters depend on the installed CLI options.
 
----
+## Semantic index
 
-### `semantic-index`
-Generate embeddings and index code into ChromaDB.
-```bash
-codemind semantic-index [path]
+```cmd
+codemind semantic-index "C:\projects\sample-app"
 ```
 
-**Arguments:**
-- `path` — repository path (default: current directory)
+Builds the vector index from supported symbol chunks. The documented supported semantic indexing extensions are Python and Java.
 
-Run this in addition to `index` to enable semantic and hybrid search.
+## Semantic search
 
----
-
-### `semantic-search`
-Search code by semantic similarity.
-```bash
-codemind semantic-search <query> [--top-k N]
+```cmd
+codemind semantic-search "where is payment validation implemented?"
 ```
 
-**Arguments:**
-- `query` — natural language description of what you are looking for
+Finds semantically related code chunks through embeddings and ChromaDB.
 
-**Options:**
-- `--top-k N` — number of results to return (default: 5, max: 20)
+## Hybrid search
 
----
-
-### `hybrid-search`
-Search using both keyword and semantic retrieval combined with RRF ranking.
-```bash
-codemind hybrid-search <query> [--top-k N]
+```cmd
+codemind hybrid-search "payment validation"
 ```
 
----
+Combines keyword and semantic rankings using Reciprocal Rank Fusion.
 
-### `ask`
-Ask the CodeMind agent a question about a repository.
-```bash
-codemind ask <query> [--repository <path>] [--top-k N]
+## Agent question
+
+```cmd
+codemind ask "Explain the payment flow" --repository "C:\projects\sample-app"
 ```
 
-**Arguments:**
-- `query` — your question in plain English
+Runs the LangGraph agent against the selected repository and uses the configured OpenRouter model to generate an answer from tool observations.
 
-**Options:**
-- `--repository` / `-r` — path to the repository (default: current directory)
-- `--top-k N` — retrieval depth (default: 5)
+## Retrieval benchmarks
 
-**Example:**
-```bash
-codemind ask "How does the scanner handle symlinks?" --repository ./codemind
+The project includes retrieval evaluation utilities and benchmark commands. Inspect the installed CLI for exact arguments:
+
+```cmd
+codemind benchmark --help
+codemind benchmark-dataset --help
 ```
 
-The agent runs up to 5 investigation steps using tools (`search_symbols`, `find_symbol`, `get_source`, `analyze_change`) before generating a grounded answer.
+## Recommended sequence
 
----
-
-### `benchmark`
-Benchmark retrieval strategies for a single query.
-```bash
-codemind benchmark <query> --relevant <id> [--relevant <id>...] [--repository <path>] [--top-k N]
+```cmd
+codemind scan "C:\projects\sample-app"
+codemind index "C:\projects\sample-app"
+codemind semantic-index "C:\projects\sample-app"
+codemind search "PaymentService"
+codemind semantic-search "payment validation"
+codemind hybrid-search "payment validation"
+codemind ask "Explain the payment flow" --repository "C:\projects\sample-app"
 ```
 
----
+## Local API
 
-### `benchmark-dataset`
-Evaluate retrieval across a full benchmark dataset.
-```bash
-codemind benchmark-dataset <dataset.json>
+```cmd
+uvicorn codemind.api.main:app --reload
 ```
 
-The dataset JSON must have this structure:
-```json
-{
-  "queries": [
-    { "query": "find payment logic", "relevant": ["src/payments.py::PaymentService::42"] }
-  ]
-}
-```
+See [API Reference](api-reference.md).
