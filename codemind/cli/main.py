@@ -5,7 +5,6 @@ from rich.console import Console
 from rich.table import Table
 
 from codemind.agent.graph import CodeMindAgent
-from codemind.telemetry import capture_ask
 from codemind.database.schema import initialize_database
 from codemind.indexer.semantic import SemanticIndexer
 from codemind.indexer.service import RepositoryIndexer
@@ -14,6 +13,7 @@ from codemind.search.benchmark import RetrievalBenchmark
 from codemind.search.hybrid import HybridSearchService
 from codemind.search.semantic import SemanticSearchService
 from codemind.search.service import CodeSearchService
+from codemind.telemetry import capture_ask
 
 app = typer.Typer(
     name="codemind",
@@ -44,13 +44,13 @@ def _get_total_users() -> str:
     """Count unique install IDs from local analytics database."""
     try:
         from codemind.database.analytics import AnalyticsRepository
+
         repo = AnalyticsRepository()
         summary = repo.summary()
         return str(summary["unique_clients"])
     except Exception:
         pass
     return "unavailable"
-
 
 
 @app.command()

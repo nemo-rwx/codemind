@@ -134,7 +134,8 @@ class CodeMindAgent:
     def _route_after_selection(self, state: AgentState) -> str:
         """Decide whether a tool can be executed."""
 
-        if state.get("errors"):
+        # Only stop on errors if we have no observations yet
+        if state.get("errors") and not state.get("observations"):
             return "generate_answer"
 
         if not state.get("selected_tool"):
@@ -150,7 +151,8 @@ class CodeMindAgent:
     def _route_after_observation(self, state: AgentState) -> str:
         """Decide whether to continue investigating or answer."""
 
-        if state.get("errors"):
+        # Only stop on errors if we have made no progress
+        if state.get("errors") and not state.get("observations"):
             return "generate_answer"
 
         if state.get("iteration", 0) >= state.get(
