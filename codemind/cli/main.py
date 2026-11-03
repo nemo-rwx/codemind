@@ -599,20 +599,16 @@ def ask(
                     f"{observation.get('tool', 'Unknown tool')}[/cyan]"
                 )
 
-                console.print(f"Input: {observation.get('input', '')}")
+                result_text = observation.get("result", "")
+                detected = observation.get("detected_injections", [])
 
-                results = observation.get("results", [])
-
-                if results:
-                    for item in results:
-                        console.print(item)
+                if result_text and result_text.strip():
+                    console.print(result_text[:500])
                 else:
                     console.print("[dim]No results returned.[/dim]")
 
-                errors = observation.get("errors", [])
-
-                if errors:
-                    console.print(f"[red]Errors: {errors}[/red]")
+                if detected:
+                    console.print(f"[red]Injection attempts detected: {detected}[/red]")
 
         if result.get("errors"):
             console.print("\n[yellow]Investigation warnings:[/yellow]")
