@@ -16,7 +16,11 @@ dependencies = [
     "tree-sitter-python>=0.25",
     "tree-sitter-java>=0.23",
     "langgraph>=0.2",
-    
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+    "sentence-transformers>=3.0",
+    "chromadb>=0.5",
+    "networkx>=3.0",
 ]
 
 
@@ -28,7 +32,8 @@ dev = ["pytest>=8.0", "ruff>=0.6", "httpx>=0.27", ]
 codemind = "codemind.cli.main:app"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+exclude = ["tests*", "src*", "benchmarks*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

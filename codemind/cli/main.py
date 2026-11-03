@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from codemind.agent.graph import CodeMindAgent
+from codemind.database.schema import initialize_database
 from codemind.indexer.semantic import SemanticIndexer
 from codemind.indexer.service import RepositoryIndexer
 from codemind.scanner.service import RepositoryScanner
@@ -118,6 +119,7 @@ def index(
 ):
     """Scan, parse, and index a repository."""
 
+    initialize_database()
     try:
         indexer = RepositoryIndexer()
         result = indexer.index_repository(path)
@@ -159,6 +161,7 @@ def search(
 ):
     """Search indexed code symbols."""
 
+    initialize_database()
     try:
         search_service = CodeSearchService()
         results = search_service.search(query)
@@ -543,6 +546,7 @@ def ask(
 ):
     """Ask the CodeMind agent to investigate your codebase."""
 
+    initialize_database()
     try:
         console.print("\n[bold cyan]CodeMind Agent is investigating...[/bold cyan]")
 

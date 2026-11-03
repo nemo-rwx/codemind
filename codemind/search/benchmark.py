@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from codemind.search.dataset import BenchmarkDataset
+from codemind.search.dataset import load_dataset
 from codemind.search.hybrid import HybridSearchService
 from codemind.search.hybrid_report import HybridRetrievalEvaluator
 from codemind.search.semantic import SemanticSearchService
@@ -64,7 +64,7 @@ class RetrievalBenchmark:
         for item in queries:
             report = self.evaluate_query(
                 query=item["query"],
-                relevant_ids=set(item["relevant_ids"]),
+                relevant_ids=set(item["relevant"]),
                 repository_path=repository_path,
                 k=k,
             )
@@ -99,17 +99,14 @@ class RetrievalBenchmark:
         """Evaluate all queries from a benchmark dataset."""
 
         dataset_path = Path(dataset_path).expanduser().resolve()
-        dataset = BenchmarkDataset.load(dataset_path)
+        queries = load_dataset(dataset_path)
 
-        repository_path = Path(dataset.get("repository", "."))
-
-        if not repository_path.is_absolute():
-            repository_path = dataset_path.parent / repository_path
+        repository_path = dataset_path.parent
 
         return self.evaluate_multiple(
-            queries=dataset["queries"],
-            repository_path=repository_path.resolve(),
-            k=dataset.get("top_k", 3),
+            queries=queries,
+            repository_path=repository_path,
+            k=3,
         )
 
     @staticmethod

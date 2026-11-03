@@ -93,8 +93,11 @@ class AgentNodes:
             if not isinstance(arguments, dict):
                 raise TypeError("Tool arguments must be a JSON object")
 
-            if tool_name in {"search_symbols", "find_symbol"}:
+            if tool_name == "search_symbols":
                 tool_input = arguments.get("query", "")
+
+            elif tool_name == "find_symbol":
+                tool_input = arguments.get("symbol_name", "")
 
                 if not isinstance(tool_input, str):
                     raise TypeError("Tool query must be a string")

@@ -14,11 +14,12 @@ class ToolExecutor:
         self.repository_tools = repository_tools or RepositoryTools()
         self.guardrails = guardrails or GuardrailService()
 
-    def execute(self, state: dict) -> dict:
-        tool_name = state.get("selected_tool", "")
-        tool_input = state.get("tool_input", "")
-        repository_path = state.get("repository_path", "")
-
+    def execute(
+        self,
+        tool_name: str,
+        tool_input: str,
+        repository_path: str,
+    ) -> dict:
         try:
             arguments = self.guardrails.validate_tool_call(
                 tool_name=tool_name,

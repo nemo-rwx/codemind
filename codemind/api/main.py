@@ -1,11 +1,23 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from codemind.api.routes.repositories import router as repository_router
+from codemind.database.schema import initialize_database
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize resources on startup."""
+    initialize_database()
+    yield
+
 
 app = FastAPI(
     title="CodeMind API",
     description="Agentic AI-powered Codebase Intelligence Assistant",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 
