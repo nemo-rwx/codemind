@@ -40,14 +40,16 @@ def version():
 # --------------------------------------------------
 
 
-def _get_total_users() -> str:
-    """Count unique install IDs from local analytics database."""
-    try:
-        from codemind.database.analytics import AnalyticsRepository
+CODEMIND_API_URL = "https://codemind-cl2m.onrender.com"
 
-        repo = AnalyticsRepository()
-        summary = repo.summary()
-        return str(summary["unique_clients"])
+
+def _get_total_users() -> str:
+    """Fetch unique user count from the central CodeMind API."""
+    try:
+        import httpx
+        resp = httpx.get(f"{CODEMIND_API_URL}/api/v1/analytics", timeout=5.0)
+        if resp.status_code == 200:
+            return str(resp.json().get("unique_clients", "?"))
     except Exception:
         pass
     return "unavailable"
