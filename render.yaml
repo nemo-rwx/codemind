@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: codemind-api
+    runtime: python
+    buildCommand: pip install -e .
+    startCommand: uvicorn codemind.api.main:app --host 0.0.0.0 --port \$PORT
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-4o-mini
+    healthCheckPath: /health
